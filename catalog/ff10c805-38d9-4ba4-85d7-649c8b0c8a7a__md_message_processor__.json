@@ -1,0 +1,39 @@
+{
+    "inputMessageMetadata": {
+        "messagePayload": {
+            "model": {
+                "connectorName": "#_custom_mule_metadata_type_#",
+                "typeId": "contactInput"
+            },
+            "isArray": false,
+            "dataType": "LIST",
+            "metaDataModelPropertiesManager": {
+                "properties": []
+            }
+        },
+        "flowVariables": {
+            "inboundFile": {}
+        }
+    },
+    "outputMessageMetadata": {
+        "messagePayload": {
+            "model": {
+                "connectorName": "Salesforce__Basic_Authentication",
+                "typeId": "Contact"
+            },
+            "isArray": false,
+            "dataType": "LIST",
+            "metaDataModelPropertiesManager": {
+                "properties": []
+            }
+        },
+        "flowVariables": {
+            "batch": {
+                "connectorName": "Salesforce__Basic_Authentication",
+                "typeId": "Contact"
+            }
+        }
+    },
+    "id": "ff10c805-38d9-4ba4-85d7-649c8b0c8a7a",
+    "version": "5.2.0.0"
+}

@@ -1,0 +1,24 @@
+{
+    "inputMessageMetadata": {
+        "messagePayload": {
+            "connectorName": "#_custom_mule_metadata_type_#",
+            "typeId": "Salesforce"
+        },
+        "flowVariables": {
+            "batchData": {
+                "model": {
+                    "connectorName": "Salesforce__Basic_Authentication",
+                    "typeId": "Contact"
+                },
+                "isArray": false,
+                "dataType": "LIST",
+                "metaDataModelPropertiesManager": {
+                    "properties": []
+                }
+            }
+        }
+    },
+    "outputMessageMetadata": {},
+    "id": "2b3e4af5-05c5-4cc2-a1d8-75d09c313107",
+    "version": "5.2.0.0"
+}

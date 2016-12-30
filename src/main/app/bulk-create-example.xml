@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:objectstore="http://www.mulesoft.org/schema/mule/objectstore"
+	xsi:schemaLocation="http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
+http://www.mulesoft.org/schema/mule/objectstore http://www.mulesoft.org/schema/mule/objectstore/current/mule-objectstore.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfdc/current/mule-sfdc.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd"><context:property-placeholder location="default.properties,override.properties" ignore-resource-not-found="true" ignore-unresolvable="true" />
+   <!-- Transport and Connector Config --> 
+    <sfdc:config name="Salesforce__Basic_Authentication" username="${sfdc.username}" password="${sfdc.password}" securityToken="${sfdc.apitoken}" doc:name="Salesforce: Basic Authentication" url="${sfdc.auth.url}">
+        <reconnect/>
+    </sfdc:config>
+    <vm:connector name="VM" validateConnections="true" doc:name="VM">
+        <vm:queue-profile>
+            <default-in-memory-queue-store/>
+        </vm:queue-profile>
+    </vm:connector>
+    <file:connector name="File-out" writeToDirectory="${file.dir}/processed/" autoDelete="false" streaming="true" validateConnections="true" doc:name="File" outputAppend="true"/>
+    <file:connector name="File-in" autoDelete="true" streaming="true" validateConnections="true" doc:name="File"/>
+   
+   
+   <!-- Flow processing -->
+    <flow name="mainFlow" >
+        <file:inbound-endpoint path="${file.dir}"  moveToDirectory="${file.dir}/processed/" connector-ref="File-in" pollingFrequency="100000" responseTimeout="10000" doc:name="File">
+           <!-- Restrict inbound files to JSON -->
+            <file:filename-regex-filter pattern=".+\.json" caseSensitive="false"/>
+        </file:inbound-endpoint>
+        <dw:transform-message metadata:id="ff10c805-38d9-4ba4-85d7-649c8b0c8a7a" doc:name="buildContacts">
+            <dw:input-payload doc:sample="sample_data/list_list_json.json" mimeType="application/json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload map ((item , indexOfPayload) -> {
+	LastName: item.lastname,
+	FirstName: item.firstname,
+	Phone: item.phone,
+	Email: item.email
+})]]></dw:set-payload>
+        </dw:transform-message>
+        <enricher source="#[payload]" target="#[flowVars.jobInfo]" doc:name="Message Enricher">
+            <flow-ref name="createBulkAPIJob" doc:name="createBulkAPIJob"/>
+        </enricher>
+        <processor-chain doc:name="Processor Chain">
+            <foreach batchSize="${sfdc.batch.size}" doc:name="For Each">
+                <flow-ref name="submitBatch" doc:name="submitBatch"/>
+            </foreach>
+            <sfdc:close-job config-ref="Salesforce__Basic_Authentication" jobId="#[flowVars.jobInfo.id]" doc:name="Close Job"/>
+        </processor-chain>
+        <sfdc:job-info config-ref="Salesforce__Basic_Authentication" jobId="#[flowVars.jobInfo.id]" doc:name="getUpdatedJobInfo"/>
+        <logger message="Job: #[payload.id] has been submitted with #[payload.numberBatchesTotal] batches." level="INFO" doc:name="logJobIdandTotalBatches"/>
+    </flow>
+    <sub-flow name="createBulkAPIJob">
+        <sfdc:create-job config-ref="Salesforce__Basic_Authentication" type="Contact" concurrencyMode="Parallel" operation="insert" doc:name="Create SF Batch Job"/>
+    </sub-flow>
+    <sub-flow name="submitBatch">
+        <set-variable variableName="batchData" value="#[payload]" doc:name="storeBatchData"/>
+        <sfdc:create-batch config-ref="Salesforce__Basic_Authentication" doc:name="Salesforce">
+            <sfdc:job-info ref="#[flowVars.jobInfo]"/>
+            <sfdc:objects ref="#[payload]"/>
+        </sfdc:create-batch>
+        <logger message="Submitted #[payload.id] to Salesforce" level="INFO" doc:name="Logger"/>
+        <set-payload value="#[['batchData':flowVars.batchData,'batchInfo':payload]]" doc:name="Set Payload"/>
+        <vm:outbound-endpoint exchange-pattern="one-way" path="batchInfo" connector-ref="VM" doc:name="VM"/>
+    </sub-flow>
+    <flow name="processBatchInfo" processingStrategy="queued-asynchronous">
+        <vm:inbound-endpoint exchange-pattern="one-way" path="batchInfo" connector-ref="VM" doc:name="VM"/>
+        <set-variable variableName="batchData" value="#[payload.batchData]" doc:name="storeBatchData"/>
+        <set-variable variableName="batchId" value="#[payload.batchInfo.id]" doc:name="setBatchID"/>
+        <until-successful maxRetries="50" millisBetweenRetries="30000" failureExpression="#[payload.state.toString() != 'Completed'  &amp;&amp; payload.state.toString() != 'Failed']" synchronous="true" doc:name="Until Successful">
+            <processor-chain doc:name="Processor Chain">
+                <sfdc:batch-info config-ref="Salesforce__Basic_Authentication" doc:name="checkBatchInfoState">
+                    <sfdc:batch-info ref="#[payload.batchInfo]"/>
+                </sfdc:batch-info>
+                <logger message="Batch ID: #[payload.id] is in state: #[payload.state]" level="INFO" doc:name="Logger"/>
+            </processor-chain>
+        </until-successful>
+        <flow-ref name="processBatchResult" doc:name="processBatchResult"/>
+    </flow>
+    <flow name="processBatchResult">
+        <sfdc:batch-result config-ref="Salesforce__Basic_Authentication" doc:name="getBatchResult">
+            <sfdc:batch-info ref="#[payload]"/>
+        </sfdc:batch-result>
+        <dw:transform-message metadata:id="2b3e4af5-05c5-4cc2-a1d8-75d09c313107" doc:name="mergeResultWithObject">
+            <dw:input-payload doc:sample="sample_data/BatchResult_1.dwl" mimeType="application/java"/>
+            <dw:input-variable doc:sample="sample_data/Contact.dwl" mimeType="application/java" variableName="batchData"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+
+payload.result map {
+	id : $.id,
+	(flowVars.batchData[$$] mapObject {'$$':$}),
+rowNumber: $$+1,
+success: $.success,
+errorStatusCode: $.errors[0].statusCode when $.success as :string == 'false' otherwise null,
+errorMessage: $.errors[0].message when $.success as :string == 'false' otherwise null
+}	
+
+]]></dw:set-payload>
+        </dw:transform-message>
+        <file:outbound-endpoint path="${file.dir}/processed/" outputPattern="#[flowVars.batchId]-batchResult.json" connector-ref="File-out" responseTimeout="10000" doc:name="File"/>
+    </flow>
+</mule>
