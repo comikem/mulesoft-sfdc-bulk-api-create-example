@@ -6,10 +6,10 @@ This project provides an example of submitting jobs to the SFDC Bulk API using M
 ###Prerequisites
 - Anypoint Studio with an Enterprise Runtime
 - Maven Studio integration configured
--  *Alternatively: disable Maven support, remove all dependencies from the build path, and add the following:*
--    SFDC 8.0+ Connector
--    Anypoint Runtime 3.8.0+
--    JDK/JRE 1.8
+  -  *Alternatively: disable Maven support, remove all dependencies from the build path, and add the following:*
+    -  SFDC 8.0+ Connector
+    -  Anypoint Runtime 3.8.0+
+    -  JDK/JRE 1.8
 - Git
 - Salesforce Org and a User with permission to create Contacts and Use the Bulk API
 -  You can get a free developer account @ https://developer.salesforce.com/signup
