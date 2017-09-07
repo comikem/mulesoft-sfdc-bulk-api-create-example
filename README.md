@@ -1,9 +1,9 @@
-#Salesforce Bulk API Example
-##Create Contacts and Parse Bulk Result
+# Salesforce Bulk API Example
+## Create Contacts and Parse Bulk Result
 
 This project provides an example of submitting jobs to the SFDC Bulk API using MuleSoft, managing the status, and reconciling the results of each record with the individual source record for reprocessing if necessary.
 
-###Prerequisites
+### Prerequisites
 - Anypoint Studio with an Enterprise Runtime
 - Maven Studio integration configured
   -  *Alternatively: disable Maven support, remove all dependencies from the build path, and add the following:*
@@ -14,7 +14,7 @@ This project provides an example of submitting jobs to the SFDC Bulk API using M
 - Salesforce Org and a User with permission to create Contacts and Use the Bulk API
 -  You can get a free developer account @ https://developer.salesforce.com/signup
 
-###Installation and Usage
+### Installation and Usage
 - Clone this project into your local Anypoint Studio workspace
 - Ensure the SFDC connector and Anypoint Runtime are configured in your build path
 - Modify **default.properties** with your SFDC credentials, file input directory and desired batch size
