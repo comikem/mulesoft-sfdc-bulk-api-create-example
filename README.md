@@ -5,7 +5,7 @@ This project provides an example of submitting jobs to the SFDC Bulk API using M
 
 ### Prerequisites
 - Anypoint Studio with an Enterprise Runtime
-- Maven Studio integration configured
+- Maven Studio integration configured with access to the MuleSoft EE Repositories
   -  *Alternatively: disable Maven support, remove all dependencies from the build path, and add the following:*
     -  SFDC 8.0+ Connector
     -  Anypoint Runtime 3.8.0+
